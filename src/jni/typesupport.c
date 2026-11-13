@@ -49,7 +49,8 @@ static const struct ddsi_sertype_ops type_ops;
 static ddsrt_once_t type_once = DDSRT_ONCE_INIT;
 static ddsrt_mutex_t type_lock;
 static void init_lock(void) { ddsrt_mutex_init(&type_lock); }
-static const struct dds_cdrstream_allocator *allocator = &dds_cdrstream_default_allocator;
+// Imported DLL data addresses are resolved at runtime on Windows.
+#define CDR_ALLOCATOR (&dds_cdrstream_default_allocator)
 
 static const struct java_type *as_type(const struct ddsi_sertype *t) { return (const struct java_type *) t; }
 static const struct java_data *as_data(const struct ddsi_serdata *d) { return (const struct java_data *) d; }
@@ -105,19 +106,19 @@ static struct ddsi_serdata *finish_data(struct java_data *d) {
   dds_istream_t is;
   dds_istream_init_well_formed(&is, actual, normalized, version);
   dds_ostream_t os;
-  dds_ostream_init(&os, allocator, 0, DDSI_RTPS_CDR_ENC_VERSION_2);
+  dds_ostream_init(&os, CDR_ALLOCATOR, 0, DDSI_RTPS_CDR_ENC_VERSION_2);
   bool ok;
   if (d->base.kind == SDK_KEY) {
-    dds_stream_extract_key_from_key(&is, &os, DDS_CDR_KEY_SERIALIZATION_SAMPLE, allocator, &t->desc);
+    dds_stream_extract_key_from_key(&is, &os, DDS_CDR_KEY_SERIALIZATION_SAMPLE, CDR_ALLOCATOR, &t->desc);
     ok = true;
-  } else ok = dds_stream_extract_key_from_data(&is, &os, allocator, &t->desc);
+  } else ok = dds_stream_extract_key_from_data(&is, &os, CDR_ALLOCATOR, &t->desc);
   if (ok) {
     d->key_size = os.m_index;
     d->key = ddsrt_malloc(d->key_size ? d->key_size : 1);
     if (!d->key) ok = false;
     else if (d->key_size) memcpy(d->key, os.m_buffer, d->key_size);
   }
-  dds_ostream_fini(&os, allocator);
+  dds_ostream_fini(&os, CDR_ALLOCATOR);
   if (!ok) goto invalid;
   unsigned char hash[16];
   digest(d->key, d->key_size, hash);
@@ -247,16 +248,16 @@ static void keyhash(const struct ddsi_serdata *base, struct ddsi_keyhash *out, b
   dds_istream_t is;
   dds_istream_init_well_formed(&is, d->key_size, d->key, DDSI_RTPS_CDR_ENC_VERSION_2);
   dds_ostreamBE_t os;
-  dds_ostreamBE_init(&os, allocator, 16, DDSI_RTPS_CDR_ENC_VERSION_2);
-  dds_stream_extract_keyBE_from_key(&is, &os, DDS_CDR_KEY_SERIALIZATION_KEYHASH, allocator, &t->desc);
+  dds_ostreamBE_init(&os, CDR_ALLOCATOR, 16, DDSI_RTPS_CDR_ENC_VERSION_2);
+  dds_stream_extract_keyBE_from_key(&is, &os, DDS_CDR_KEY_SERIALIZATION_KEYHASH, CDR_ALLOCATOR, &t->desc);
   if (force_md5 || !(t->desc.flagset & DDS_TOPIC_FIXED_KEY_XCDR2)) digest(os.x.m_buffer, os.x.m_index, out->value);
   else if (os.x.m_index <= 16) memcpy(out->value, os.x.m_buffer, os.x.m_index);
-  dds_ostreamBE_fini(&os, allocator);
+  dds_ostreamBE_fini(&os, CDR_ALLOCATOR);
 }
 
 static void type_free(struct ddsi_sertype *base) {
   struct java_type *t = (struct java_type *) base;
-  if (t->ready) dds_cdrstream_desc_fini(&t->desc, allocator);
+  if (t->ready) dds_cdrstream_desc_fini(&t->desc, CDR_ALLOCATOR);
   ddsrt_free(t->info); ddsrt_free(t->map);
   ddsi_sertype_fini(base); ddsrt_free(t);
 }
@@ -349,7 +350,7 @@ static dds_return_t init_descriptor(struct java_type *t) {
     t->extensibility = (desc.m_ops[0] & DDS_OP_MASK) == DDS_OP_PLC ? 2 : (desc.m_ops[0] & DDS_OP_MASK) == DDS_OP_DLC ? 1 : 0;
     if ((desc.m_nkeys != 0) != (t->base.has_key != 0))
       rc = DDS_RETCODE_BAD_PARAMETER;
-    else rc = dds_cdrstream_desc_init_with_nops(&t->desc, allocator, desc.m_size, desc.m_align,
+    else rc = dds_cdrstream_desc_init_with_nops(&t->desc, CDR_ALLOCATOR, desc.m_size, desc.m_align,
         desc.m_flagset, desc.m_ops, desc.m_nops, desc.m_keys, desc.m_nkeys);
     ddsi_topic_descriptor_fini(&desc);
     t->ready = rc == DDS_RETCODE_OK;
@@ -422,15 +423,15 @@ bool java_merge_key(const struct ddsi_sertype *type, const struct java_sample *k
   dds_istream_t is;
   dds_istream_init_well_formed(&is, as_data(sd)->size - 4, as_data(sd)->bytes + 4,
       as_data(sd)->bytes[1] < 4 ? DDSI_RTPS_CDR_ENC_VERSION_1 : DDSI_RTPS_CDR_ENC_VERSION_2);
-  dds_stream_read_sample(&is, sample, allocator, &t->desc);
+  dds_stream_read_sample(&is, sample, CDR_ALLOCATOR, &t->desc);
   dds_istream_init_well_formed(&is, as_data(key_sd)->size - 4, as_data(key_sd)->bytes + 4, DDSI_RTPS_CDR_ENC_VERSION_2);
-  dds_stream_read_key(&is, sample, allocator, &t->desc);
+  dds_stream_read_key(&is, sample, CDR_ALLOCATOR, &t->desc);
   dds_ostream_t os;
-  dds_ostream_init(&os, allocator, 0, DDSI_RTPS_CDR_ENC_VERSION_2);
-  bool ok = dds_stream_write_sample(&os, allocator, sample, &t->desc);
+  dds_ostream_init(&os, CDR_ALLOCATOR, 0, DDSI_RTPS_CDR_ENC_VERSION_2);
+  bool ok = dds_stream_write_sample(&os, CDR_ALLOCATOR, sample, &t->desc);
   if (ok) {
     unsigned char *bytes = ddsrt_malloc(4 + os.m_index);
-    if (!bytes) { dds_ostream_fini(&os, allocator); dds_stream_free_sample(sample, allocator, t->desc.ops.ops); ddsrt_free(sample); ddsi_serdata_unref(sd); ddsi_serdata_unref(key_sd); return false; }
+    if (!bytes) { dds_ostream_fini(&os, CDR_ALLOCATOR); dds_stream_free_sample(sample, CDR_ALLOCATOR, t->desc.ops.ops); ddsrt_free(sample); ddsi_serdata_unref(sd); ddsi_serdata_unref(key_sd); return false; }
     memset(bytes, 0, 4);
 #if DDSRT_ENDIAN == DDSRT_LITTLE_ENDIAN
     bytes[1] = 7 + 2 * t->extensibility;
@@ -440,8 +441,8 @@ bool java_merge_key(const struct ddsi_sertype *type, const struct java_sample *k
     memcpy(bytes + 4, os.m_buffer, os.m_index);
     value->bytes = bytes; value->size = 4 + os.m_index;
   }
-  dds_ostream_fini(&os, allocator);
-  dds_stream_free_sample(sample, allocator, t->desc.ops.ops);
+  dds_ostream_fini(&os, CDR_ALLOCATOR);
+  dds_stream_free_sample(sample, CDR_ALLOCATOR, t->desc.ops.ops);
   ddsrt_free(sample); ddsi_serdata_unref(sd); ddsi_serdata_unref(key_sd);
   return ok;
 }
