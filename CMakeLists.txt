@@ -127,7 +127,11 @@ add_custom_command(OUTPUT "${UNIVERSAL_IDLC_JAR}"
   VERBATIM)
 add_custom_target(universal-idlc ALL DEPENDS "${UNIVERSAL_IDLC_JAR}")
 install(FILES "${UNIVERSAL_IDLC_JAR}" DESTINATION share/java)
-find_program(MAVEN_EXECUTABLE NAMES mvn mvn.cmd HINTS "$ENV{MAVEN_HOME}/bin")
+if(WIN32)
+  find_program(MAVEN_EXECUTABLE NAMES mvn.cmd HINTS "$ENV{MAVEN_HOME}/bin")
+else()
+  find_program(MAVEN_EXECUTABLE NAMES mvn HINTS "$ENV{MAVEN_HOME}/bin")
+endif()
 if(MAVEN_EXECUTABLE)
   add_custom_target(maven-install
     COMMAND "${MAVEN_EXECUTABLE}" -B -f "${PROJECT_SOURCE_DIR}/maven/pom.xml"
