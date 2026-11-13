@@ -51,8 +51,8 @@ its separate compiler package,
 without a system Cyclone DDS installation, CMake or a C compiler. Building the
 binding itself still requires the matching native core and development tools.
 A local CMake build combines the local platform; :doc:`maven` describes the
-multi-platform assembly and mandatory release platform checks. Windows remains
-unverified and is not part of the default release matrix.
+multi-platform assembly and mandatory release platform checks. Release targets
+are Linux x86-64/ARM64, macOS ARM64 and Windows x86-64.
 
 Verify an extracted archive
 ---------------------------
@@ -98,7 +98,8 @@ compiler JAR with its Maven integration. Explicit ``cyclonedds.runtime.jar`` and
 ``cyclonedds.idlc.jar`` properties supply the packaged native resources. See
 :doc:`maven` for commands. Nothing is published automatically.
 
-``.github/workflows/universal.yml`` builds Linux/macOS on ARM64 and x86-64,
+``.github/workflows/universal.yml`` builds Linux on ARM64 and x86-64,
+macOS on ARM64, and Windows on x86-64,
 aggregates each kind into its own JAR, then verifies the same runtime/compiler
 pair on all four hosts. Each build uses the pinned core below. Local validation
 is macOS ARM64; remote workflow results must be checked separately.

@@ -79,11 +79,12 @@ are not yet published to Maven Central. Until publication, use a Maven repositor
 containing the artifacts or the [maintainer installation workflow](docs/manual/maven.rst).
 
 No platform classifier or OS profiles are needed in the POM. The universal
-release build requires Linux and macOS on x86-64 and ARM64. Its build matrix
+release build requires Linux on x86-64 and ARM64, macOS on ARM64, and Windows on
+x86-64. Its build matrix
 combines the native outputs and tests the identical runtime/compiler pair on each host. A local
 CMake build includes the local host by default; building that JAR alone does not
-produce binaries for other systems. Windows is not part of the verified release
-matrix yet. See [assembly and cross-platform builds](docs/manual/maven.rst).
+produce binaries for other systems. See
+[assembly and cross-platform builds](docs/manual/maven.rst).
 
 Generated classes have a default constructor, an all-values constructor, and
 `get_id()` / `set_id(...)` accessors. No application-specific C library is needed.
@@ -188,7 +189,7 @@ per-platform assembly inputs, thin development JARs, JNI runtime and IDL backend
 checksums. Nothing is published automatically. The tests cover wire formats,
 standard API behavior, three independent C interoperability paths, a Java-only
 installed consumer, and bundled-native loading with native search paths disabled.
-Local validation is macOS arm64; Linux/macOS CI is configured.
+Local validation is macOS ARM64; Linux, macOS ARM64 and Windows x86-64 CI is configured.
 
 The [upstream test ledger](tests/upstream/README.md) compares pinned fresh Python
 and C++ downloads with runnable Java scenarios. It records remaining gaps;

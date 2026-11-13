@@ -96,7 +96,7 @@ Application types must continue to require no application-specific native librar
 Remaining release and validation work
 -------------------------------------
 
-Verify the configured Linux/macOS CI remotely and add Windows coverage. Provide a
+Verify the configured Linux x86-64/ARM64, macOS ARM64 and Windows x86-64 CI. Provide a
 published Maven/Gradle generator/native workflow, reproducible archives and
 sanitizer/stress runs. The standalone runtime JAR bundles the matching core/JNI libraries; code
 generation uses the separate ``org.eclipse.cyclonedds.idlc`` package, including

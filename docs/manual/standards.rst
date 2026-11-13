@@ -199,7 +199,7 @@ The CMake distribution installs thin API/runtime JARs, separate multi-platform
 runtime and compiler JARs, native libraries and generator backend,
 CMake package, licenses/docs and a consumer example. CPack produces development
 archives and SHA-256 checksums. An integration test builds and runs a Java-only
-consumer from the installation. Linux/macOS CI is configured; only macOS arm64
+consumer from the installation. Linux, macOS ARM64 and Windows x86-64 CI is configured; only macOS ARM64
 has been executed locally. Maven builds the runtime and the separate compiler
 package with its source-generation goal.
 Byte-for-byte archive reproducibility and a complete published Maven/native

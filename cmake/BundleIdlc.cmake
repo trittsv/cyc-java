@@ -11,8 +11,14 @@ file(COPY_FILE "${IDLC}" "${payload}/bin/${executable}")
 file(COPY_FILE "${BACKEND}" "${payload}/lib/${backend}")
 # Capture the actual compiler dependency closure, including versioned loader names.
 # OS runtime libraries remain supplied by the host, as for the runtime JAR.
+set(dependency_search)
+if(WIN32)
+  get_filename_component(idlc_directory "${IDLC}" DIRECTORY)
+  list(APPEND dependency_search DIRECTORIES "${idlc_directory}")
+endif()
 file(GET_RUNTIME_DEPENDENCIES
   EXECUTABLES "${IDLC}" LIBRARIES "${BACKEND}"
+  ${dependency_search}
   RESOLVED_DEPENDENCIES_VAR dependencies UNRESOLVED_DEPENDENCIES_VAR missing
   PRE_EXCLUDE_REGEXES "^api-ms-" "^ext-ms-"
   POST_EXCLUDE_REGEXES "^/System/Library/" "^/usr/lib/.*\\.dylib$"

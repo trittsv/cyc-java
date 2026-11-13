@@ -10,6 +10,12 @@
 
 cmake_minimum_required(VERSION 3.21)
 project(CycloneDDSJava VERSION 11.0.1 LANGUAGES C Java)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+if(MSVC)
+  # Keep Unicode interoperability fixtures identical to the Java UTF-8 sources.
+  add_compile_options(/utf-8)
+endif()
 
 find_package(CycloneDDS ${PROJECT_VERSION} EXACT REQUIRED)
 find_package(Java 17 REQUIRED COMPONENTS Development)
@@ -118,7 +124,7 @@ add_custom_command(OUTPUT "${UNIVERSAL_IDLC_JAR}"
   VERBATIM)
 add_custom_target(universal-idlc ALL DEPENDS "${UNIVERSAL_IDLC_JAR}")
 install(FILES "${UNIVERSAL_IDLC_JAR}" DESTINATION share/java)
-find_program(MAVEN_EXECUTABLE NAMES mvn HINTS "$ENV{MAVEN_HOME}/bin")
+find_program(MAVEN_EXECUTABLE NAMES mvn mvn.cmd HINTS "$ENV{MAVEN_HOME}/bin")
 if(MAVEN_EXECUTABLE)
   add_custom_target(maven-install
     COMMAND "${MAVEN_EXECUTABLE}" -B -f "${PROJECT_SOURCE_DIR}/maven/pom.xml"

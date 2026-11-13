@@ -104,9 +104,9 @@ it uses Linux ``idlc``; the deployed application uses macOS DDS/JNI. Packaging
 native binaries does not cross-compile new C libraries. The maintainer must
 build and test each native variant first.
 
-The release matrix requires Linux and macOS on x86-64 and ARM64 for both JARs.
-Windows can use the same resource layout when validated, but is not currently
-part of that matrix. A missing host compiler/runtime is reported explicitly.
+The release matrix requires Linux on x86-64 and ARM64, macOS on ARM64, and
+Windows on x86-64 for both JARs. macOS Intel is not a release target.
+A missing host compiler/runtime is reported explicitly.
 A local CMake build includes only its host by default; its platform indexes
 list only actual supplied binaries. Release aggregation fails when any required
 platform is missing.
@@ -163,7 +163,7 @@ local host. The assembler emits each kind separately:
    java -cp org.eclipse.cyclonedds.idlc-11.0.1-linux-x86_64.jar \
      org.eclipse.cyclonedds.idlc.UniversalJar --kind runtime \
      --output org.eclipse.cyclonedds-11.0.1.jar --version 11.0.1 \
-     --platforms linux-x86_64,linux-aarch64,macos-x86_64,macos-aarch64 \
+     --platforms linux-x86_64,linux-aarch64,macos-aarch64,windows-x86_64 \
      --input-dir platform-builds
 
 Use ``--kind compiler`` and output ``org.eclipse.cyclonedds.idlc-11.0.1.jar`` for
