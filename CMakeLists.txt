@@ -332,6 +332,11 @@ if(BUILD_TESTING)
   set_tests_properties(broader-idl-interop xcdr1-broader-interop xcdr1 PROPERTIES TIMEOUT 40 RESOURCE_LOCK broader-domain
     ENVIRONMENT "CYCLONEDDS_URI=<CycloneDDS><Domain><General><Interfaces><NetworkInterface address=\"127.0.0.1\"/></Interfaces><AllowMulticast>false</AllowMulticast></General><Discovery><ParticipantIndex>auto</ParticipantIndex><Peers><Peer Address=\"127.0.0.1\"/></Peers></Discovery></Domain></CycloneDDS>")
   set_tests_properties(pubsub c-interop collections-interop structured-interop generated-types omg-api omg-selectors omg-waitsets omg-qos PROPERTIES TIMEOUT 30)
+  # These tests launch a separate C process. Use explicit loopback discovery so
+  # they do not depend on multicast between processes on hosted runners.
+  # The C peer inherits CYCLONEDDS_URI from the Java process.
+  set_tests_properties(c-interop collections-interop structured-interop PROPERTIES
+    ENVIRONMENT "CYCLONEDDS_URI=<CycloneDDS><Domain><General><Interfaces><NetworkInterface address=\"127.0.0.1\"/></Interfaces><AllowMulticast>false</AllowMulticast></General><Discovery><ParticipantIndex>auto</ParticipantIndex><Peers><Peer Address=\"127.0.0.1\"/></Peers></Discovery></Domain></CycloneDDS>")
   add_test(NAME installed-consumer COMMAND ${CMAKE_COMMAND}
     "-DBUILD_DIR=${CMAKE_BINARY_DIR}" "-DSOURCE_DIR=${PROJECT_SOURCE_DIR}"
     "-DCORE_DIR=${CycloneDDS_DIR}" "-DJAVA=${Java_JAVA_EXECUTABLE}"

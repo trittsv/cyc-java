@@ -26,6 +26,10 @@ with assertions and JNI checking enabled. Independent C peers verify wire and
 discovery interoperability. The installed-consumer and bundled-runtime tests
 exercise installation and automatic native loading.
 
+The separate-process C interoperability tests use explicit loopback peers with
+multicast disabled. CTest supplies the same ``CYCLONEDDS_URI`` configuration to
+the Java process and its C peer, avoiding host-network discovery dependencies.
+
 The ``xcdr1`` test covers independent wire vectors, both byte orders, optional
 alignment, native mutable/standalone appendable schema evolution, large members,
 C interoperability and mixed-representation instance identity on the unmodified
