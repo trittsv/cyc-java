@@ -556,7 +556,10 @@ static void emit_annotations(FILE *out, const idl_node_t *node) {
     fprintf(out, "@%s(", q); free(q);
     bool first = true;
     for (const idl_annotation_appl_param_t *arg = a->parameters; arg; arg = (const idl_annotation_appl_param_t *) arg->node.next) {
-      if (!first) fputs(", ", out); first = false;
+      if (!first) {
+        fputs(", ", out);
+      }
+      first = false;
       fprintf(out, "%s=", mapped_name(arg->member->declarator));
       emit_literal(out, arg->member->type_spec, arg->const_expr);
     }
