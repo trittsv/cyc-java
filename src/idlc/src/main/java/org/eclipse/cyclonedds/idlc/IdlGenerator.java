@@ -25,8 +25,10 @@ public final class IdlGenerator {
         for (Path root : roots) if (root.startsWith(output) || output.startsWith(root))
             throw new IOException("IDL inputs and generated output must be separate directories: " + output);
         var inputs = files(sources).stream().filter(p -> p.getFileName().toString().endsWith(".idl")).toList();
-        List<String> options = new ArrayList<>(List.of("-I", sources.toString()));
-        for (Path root : roots.subList(1, roots.size())) { options.add("-I"); options.add(root.toString()); }
+        // The native parser requires long Windows names, not 8.3 aliases such as RUNNER~1.
+        String sourcePath = Files.exists(sources) ? sources.toRealPath().toString() : sources.toString();
+        List<String> options = new ArrayList<>(List.of("-I", sourcePath));
+        for (Path root : roots.subList(1, roots.size())) { options.add("-I"); options.add(root.toRealPath().toString()); }
         for (String define : defines) { options.add("-D"); options.add(define); }
         MessageDigest digest = Idlc.sha256();
         update(digest, "cyclonedds-idlc-state-v1");
@@ -54,8 +56,8 @@ public final class IdlGenerator {
             if (!inputs.isEmpty()) try (var compiler = Idlc.open(tool, temporaryRoot)) {
                 for (Path input : inputs) {
                     List<String> arguments = new ArrayList<>(options);
-                    arguments.add("-o"); arguments.add(staging.toString()); arguments.add(input.toString());
-                    compiler.generate(arguments, sources, log);
+                    arguments.add("-o"); arguments.add(staging.toRealPath().toString()); arguments.add(input.toRealPath().toString());
+                    compiler.generate(arguments, sources.toRealPath(), log);
                 }
             }
             Files.writeString(staging.resolve(STATE), inputHash + "\n" + outputHash(staging) + "\n", StandardCharsets.UTF_8);

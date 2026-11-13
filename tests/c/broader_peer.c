@@ -18,6 +18,17 @@
 #include "dds/cdr/dds_cdrstream.h"
 #include "Types.h"
 
+static bool wait_for_reader(dds_entity_t writer) {
+  dds_time_t deadline = dds_time() + DDS_SECS(5);
+  while (dds_time() < deadline) {
+    dds_publication_matched_status_t status;
+    if (dds_get_publication_matched_status(writer, &status) < 0) return false;
+    if (status.current_count > 0) return true;
+    dds_sleepfor(DDS_MSECS(2));
+  }
+  return false;
+}
+
 int main(int argc, char **argv) {
   if (argc != 4) return 1;
   int expected = atoi(argv[1]);
@@ -59,7 +70,9 @@ int main(int argc, char **argv) {
       dds_return_t count = dds_take(readers[i], values, info, 8, 8);
       if (count < 0) { ok = 0; break; }
       for (int j = 0; j < count; j++) if (info[j].valid_data) {
-        if (dds_write(writers[i], values[j]) < 0) ok = 0;
+        // Java observing this writer does not guarantee that discovery has
+        // completed in the reverse direction. Volatile replies need a reader.
+        if (!wait_for_reader(writers[i]) || dds_write(writers[i], values[j]) < 0) ok = 0;
         received++;
       }
       if (count > 0) dds_return_loan(readers[i], values, count);
