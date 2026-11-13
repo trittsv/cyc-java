@@ -39,7 +39,7 @@ with no vendor additions to ``org.omg.dds``.
 
 ``helloworld-java`` and ``omg-api-tests`` compile against the normative DDS API JAR,
 the separate supported IDL4 API interfaces, and generated types, without
-``cyclonedds-java.jar`` on their compilation classpath.
+``org.eclipse.cyclonedds.jar`` on their compilation classpath.
 They run with the Cyclone provider selected through ``ServiceEnvironment``.
 This demonstrates source compatibility for those applications and behavior for
 the tested paths. It does not demonstrate every profile requirement.
@@ -195,16 +195,17 @@ their reader and close with it. A selector caches its read condition until its
 state/query configuration changes or the condition closes; instance-restricted
 conditions remain unsupported.
 
-The CMake distribution installs thin API/runtime JARs, a standalone platform JAR,
-native runtime, generator backend,
+The CMake distribution installs thin API/runtime JARs, separate multi-platform
+runtime and compiler JARs, native libraries and generator backend,
 CMake package, licenses/docs and a consumer example. CPack produces development
 archives and SHA-256 checksums. An integration test builds and runs a Java-only
 consumer from the installation. Linux/macOS CI is configured; only macOS arm64
-has been executed locally. Maven currently builds the combined Java JAR only.
+has been executed locally. Maven builds the runtime and the separate compiler
+package with its source-generation goal.
 Byte-for-byte archive reproducibility and a complete published Maven/native
 release workflow are not established.
 
-The standalone platform JAR combines the normative API, supported IDL API,
+The runtime JAR combines the normative API, supported IDL API,
 provider and matching core/JNI libraries. A loader verifies bundled library
 SHA-256 digests, extracts them into a private temporary directory and loads the
 core before JNI. The bundled-runtime test runs with an unusable native search
@@ -212,6 +213,7 @@ path and empty loader environment variables. Applications need no manual native
 loading or external core installation when running that artifact.
 
 The native bundle error test rejects altered resource checksums and unsupported
-platforms in isolated JVMs and verifies temporary extraction cleanup. The README's
-IDL/CMake/Java snippets have also been generated, compiled and executed unchanged
-with only the platform runtime JAR and generated type JAR on the classpath.
+platforms in isolated JVMs and verifies temporary extraction cleanup. The Maven
+consumer and standalone compiler tests generate and compile Java types using the
+separate compiler and runtime JARs, without a platform classifier or external native tools.
+The installed consumer exchanges DDS data with only the runtime JAR on its classpath.

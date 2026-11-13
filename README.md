@@ -13,9 +13,13 @@ SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 # Cyclone DDS Java
 
 Java binding for Cyclone DDS using the **official OMG DDS-Java API** and generated
-IDL4-Java types. Generate your types once, then run with a platform runtime JAR.
-The JAR contains the API, Java provider, JNI and matching Cyclone DDS native core;
-it extracts and loads native libraries automatically.
+IDL4-Java types. Two clearly separated artifacts are provided:
+
+* **`org.eclipse.cyclonedds`**: Java API, provider, DDS core and JNI libraries for runtime use.
+* **`org.eclipse.cyclonedds.idlc`**: IDL compilers, platform libraries, command-line launcher and Maven build integration.
+
+Both use version **11.0.1** and select their platform automatically. The compiler
+package is build-time only and is not an application runtime dependency.
 
 **Status:** experimental, with a tested API subset. Full OMG profile conformance
 and production maturity are not established. See [coverage](docs/manual/standards.rst)
@@ -31,34 +35,66 @@ module Example {
 };
 ```
 
-With an installed binding and Cyclone DDS compiler, use this `CMakeLists.txt`:
+Put the file in `src/main/idl/Message.idl` and add the runtime dependency and
+IDL generator to your Maven project's `pom.xml`:
 
-```cmake
-cmake_minimum_required(VERSION 3.21)
-project(MyTypes LANGUAGES Java)
-find_package(CycloneDDSJava CONFIG REQUIRED)
-idljava_generate(TARGET message-types FILES Message.idl)
+```xml
+<properties>
+  <maven.compiler.release>17</maven.compiler.release>
+  <cyclonedds.version>11.0.1</cyclonedds.version>
+</properties>
+<dependencies>
+  <dependency>
+    <groupId>org.eclipse.cyclonedds</groupId>
+    <artifactId>org.eclipse.cyclonedds</artifactId>
+    <version>${cyclonedds.version}</version>
+  </dependency>
+</dependencies>
+<build>
+  <plugins>
+    <plugin>
+      <groupId>org.eclipse.cyclonedds</groupId>
+      <artifactId>org.eclipse.cyclonedds.idlc</artifactId>
+      <version>${cyclonedds.version}</version>
+      <executions>
+        <execution><goals><goal>generate</goal></goals></execution>
+      </executions>
+    </plugin>
+    <plugin>
+      <groupId>org.apache.maven.plugins</groupId>
+      <artifactId>maven-compiler-plugin</artifactId>
+      <version>3.13.0</version>
+    </plugin>
+  </plugins>
+</build>
 ```
 
-```sh
-cmake -S . -B type-build \
-  -DCMAKE_PREFIX_PATH="/path/to/java-binding;/path/to/cyclonedds-install"
-cmake --build type-build --parallel
-```
+`mvn package` now generates Java under `target/generated-sources/cyclonedds`
+before compiling the application. The `org.eclipse.cyclonedds.idlc` build tool
+uses its own bundled compiler. No CMake, C compiler, GitHub checkout or manually installed `idlc` is needed in an application project.
+Use JDK 17+ and Maven 3.9+.
 
-This produces `type-build/message-types.jar`. Generated classes have a default
-constructor, an all-values constructor, and `get_id()` / `set_id(...)` accessors.
-No application-specific C library is generated or needed.
-Optional/external fields, inheritance, recursive types, mutable XCDR1/XCDR2, wide text
-and arrays of sequences are supported; see [richer IDL schemas](docs/manual/howtos/idl.rst)
-for examples, annotations and restrictions.
+**Publication status:** these artifacts are implemented and tested locally but
+are not yet published to Maven Central. Until publication, use a Maven repository
+containing the artifacts or the [maintainer installation workflow](docs/manual/maven.rst).
 
-Already have generated types? Start with the next step. The compiler and CMake
-are build-time tools, not application runtime dependencies.
+No platform classifier or OS profiles are needed in the POM. The universal
+release build requires Linux and macOS on x86-64 and ARM64. Its build matrix
+combines the native outputs and tests the identical runtime/compiler pair on each host. A local
+CMake build includes the local host by default; building that JAR alone does not
+produce binaries for other systems. Windows is not part of the verified release
+matrix yet. See [assembly and cross-platform builds](docs/manual/maven.rst).
+
+Generated classes have a default constructor, an all-values constructor, and
+`get_id()` / `set_id(...)` accessors. No application-specific C library is needed.
+See [Maven options, includes and offline builds](docs/manual/maven.rst), or the
+[existing CMake/direct compiler integration](docs/manual/idljava.rst).
+Optional/external fields, inheritance, recursive types, mutable XCDR1/XCDR2, wide
+text and arrays of sequences are supported; see [richer schemas](docs/manual/howtos/idl.rst).
 
 ## 2. Use the type
 
-Save as `Demo.java`. It publishes and receives one sample through the standard API:
+Save as `src/main/java/Demo.java`. It publishes and receives one sample through the standard API:
 
 ```java
 import Example.Message;
@@ -102,18 +138,13 @@ public final class Demo {
 }
 ```
 
-Choose the JAR matching your OS/CPU. For example, on macOS arm64:
-
 ```sh
-DDS_JAR=/path/to/java-binding/share/java/cyclonedds-java-0.1.0-macos-aarch64.jar
-javac -cp "$DDS_JAR:type-build/message-types.jar" Demo.java
-java -cp "$DDS_JAR:type-build/message-types.jar:." Demo
+mvn package
+mvn org.codehaus.mojo:exec-maven-plugin:3.5.0:java -Dexec.mainClass=Demo
 ```
 
-Output: `Hello from Java!`. No `System.loadLibrary`, `java.library.path`, or
-separate Cyclone DDS installation is required **at runtime** for the bundled
-platform JAR. JDK 17+ is required. Use `linux-x86_64` or `linux-aarch64` artifacts
-on Linux; Windows remains unverified. Windows classpaths use `;` instead of `:`.
+Output: `Hello from Java!`. The runtime JAR loads its matching bundled native
+libraries automatically; application code needs no native search-path setup.
 
 For separate publisher/subscriber processes, see
 [HelloWorld](examples/helloworld/java/org/eclipse/cyclonedds/examples/HelloWorld.java).
@@ -152,8 +183,8 @@ cmake --install build --prefix /path/to/java-binding
 cmake --build build --target package
 ```
 
-The build creates the standalone platform JAR, thin development JARs, JNI runtime
-and IDL backend. CPack produces development `.tar.gz` / `.zip` archives and SHA-256
+The build creates separate runtime and compiler JARs for the configured platforms,
+per-platform assembly inputs, thin development JARs, JNI runtime and IDL backend. CPack produces development `.tar.gz` / `.zip` archives and SHA-256
 checksums. Nothing is published automatically. The tests cover wire formats,
 standard API behavior, three independent C interoperability paths, a Java-only
 installed consumer, and bundled-native loading with native search paths disabled.
@@ -163,27 +194,17 @@ The [upstream test ledger](tests/upstream/README.md) compares pinned fresh Pytho
 and C++ downloads with runnable Java scenarios. It records remaining gaps;
 complete upstream test parity is not yet established.
 
-For Maven, the platform JAR can be installed locally as a classified artifact:
+To build and install the Maven artifacts locally, make Maven available when
+configuring CMake, then run:
 
 ```sh
-mvn install:install-file -Dfile="$DDS_JAR" \
-  -DgroupId=org.eclipse.cyclonedds -DartifactId=cyclonedds-java \
-  -Dversion=0.1.0-SNAPSHOT -Dclassifier=macos-aarch64 -Dpackaging=jar
+cmake --build build --target maven-install
 ```
 
-```xml
-<dependency>
-  <groupId>org.eclipse.cyclonedds</groupId>
-  <artifactId>cyclonedds-java</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
-  <classifier>macos-aarch64</classifier>
-</dependency>
-```
-
-These coordinates describe a local install; this project is not yet published to
-Maven Central. `mvn package` currently builds Java only. See
-[distribution details](docs/manual/distribution.rst) and
-[documentation build instructions](docs/how-to-build.md).
+This installs `org.eclipse.cyclonedds` (runtime) and `org.eclipse.cyclonedds.idlc`
+(compiler plus Maven integration) into the local Maven repository. It does not
+publish to a remote repository. See [Maven packaging and validation](docs/manual/maven.rst)
+and [distribution details](docs/manual/distribution.rst).
 
 ## License
 

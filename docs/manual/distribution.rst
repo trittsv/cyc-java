@@ -21,32 +21,38 @@ Build and validate the binding before producing archives:
    ctest --test-dir build --output-on-failure
    cmake --build build --target package
 
-CPack creates platform-specific ``cyclonedds-java-0.1.0-dev-*.tar.gz`` and ``.zip``
+CPack creates platform-specific ``org.eclipse.cyclonedds-11.0.1-*.tar.gz`` and ``.zip``
 files and accompanying SHA-256 checksum files in the build directory. These are
 experimental development artifacts, not official Eclipse releases. Nothing is
 published by this command. Archive bit-for-bit reproducibility is not established.
 
 A distribution includes:
 
-* ``share/java/cyclonedds-java-0.1.0-<platform>.jar``: standalone runtime, APIs and bundled natives.
+* ``share/java/org.eclipse.cyclonedds-11.0.1.jar``: API, provider, JNI and native runtimes.
+* ``share/java/org.eclipse.cyclonedds.idlc-11.0.1.jar``: compiler launcher, compilers and their platform libraries.
+* ``share/java/org.eclipse.cyclonedds-11.0.1-<platform>.jar``: per-platform runtime assembly input.
+* ``share/java/org.eclipse.cyclonedds.idlc-11.0.1-<platform>.jar``: per-platform compiler assembly input.
 * ``share/java/omg-dds-api.jar``\ : unmodified normative DDS-Java API and Apache notices.
 * ``share/java/idl4-java-api.jar``\ : supported sequence interfaces and project license.
-* ``share/java/cyclonedds-java.jar``\ : provider, codec runtime and project notices.
+* ``share/java/org.eclipse.cyclonedds.jar``\ : provider, codec runtime and project notices.
 * ``lib/libcycloneddsjava.*``\ : generic JNI runtime.
 * ``lib/libcycloneddsidljava.*``\ : IDL compiler backend.
 * ``lib/cmake/CycloneDDSJava``\ : downstream generator/package integration.
-* ``share/doc/cyclonedds-java``\ : license, README, coverage and usage documentation.
-* ``share/cyclonedds-java/consumer-example``\ : a standalone Java-only consumer project.
+* ``share/doc/org.eclipse.cyclonedds``\ : license, README, coverage and usage documentation.
+* ``share/org.eclipse.cyclonedds/consumer-example``\ : a standalone Java-only consumer project.
 
-Running the standalone platform JAR requires JDK 17+ and the matching OS/CPU,
-without a separate Cyclone DDS installation. It includes the core and JNI
-libraries, extracts them to a private temporary directory, verifies SHA-256 digests,
-and loads dependencies in order. The temporary filesystem must allow native code
-to load. The platform JAR is not a universal cross-platform artifact.
+Each runtime/compiler JAR requires JDK 17+ and a platform present in its manifest.
+It extracts only the build host's compiler or the running application's native
+libraries, checks SHA-256 digests, and loads dependencies in order. The temporary
+filesystem must allow native code to load/execute.
 
-Generating types or building the binding still requires the matching external
-Cyclone DDS installation, compiler and development headers. Thin development JARs
-remain available for explicit system-native loading. Windows is unverified.
+The ``org.eclipse.cyclonedds.idlc`` Maven goal generates application types using
+its separate compiler package,
+without a system Cyclone DDS installation, CMake or a C compiler. Building the
+binding itself still requires the matching native core and development tools.
+A local CMake build combines the local platform; :doc:`maven` describes the
+multi-platform assembly and mandatory release platform checks. Windows remains
+unverified and is not part of the default release matrix.
 
 Verify an extracted archive
 ---------------------------
@@ -55,7 +61,7 @@ Extract it into a fresh directory and configure the included consumer:
 
 .. code-block:: sh
 
-   cmake -S /path/to/distribution/share/cyclonedds-java/consumer-example \
+   cmake -S /path/to/distribution/share/org.eclipse.cyclonedds/consumer-example \
      -B consumer-build \
      -DCMAKE_PREFIX_PATH="/path/to/distribution;/path/to/cyclonedds-install"
    cmake --build consumer-build --parallel
@@ -73,7 +79,7 @@ The provider is selected by:
 
    -Dorg.omg.dds.serviceClassName=org.eclipse.cyclonedds.omg.CycloneServiceEnvironment
 
-At runtime, include only the platform runtime JAR and generated application JAR
+At runtime, include only the runtime JAR and generated application JAR
 on the classpath. Application code does not load libraries or set native paths.
 The installed CMake package exposes ``CycloneDDSJava_BUNDLED_RUNTIME_JAR`` for
 this purpose, alongside the thin API/runtime paths used for compilation.
@@ -81,17 +87,21 @@ this purpose, alongside the thin API/runtime paths used for compilation.
 Maven and CI
 ------------
 
-``mvn package`` builds the combined Java artifact, with the normative API and license
-notices. It does not build JNI, run ``idlc``\ , package native classifiers or execute
-native integration tests. Use the CMake distribution for the complete toolchain.
-The README shows how to install the platform JAR into a local Maven repository
-as a classified artifact. Publishing platform artifacts and a generator plugin
-remain future work; no Maven Central publication is claimed.
+``mvn package`` at the repository root builds the Java runtime. The
+``maven/pom.xml`` reactor also builds ``org.eclipse.cyclonedds.idlc``, a compiler
+JAR that is both directly executable and usable as a Maven build plugin. There
+is no separate ``*-maven-plugin`` artifact. Runtime and compiler packages have
+no dependency on one another, and Maven APIs are provided by Maven itself.
 
-CI is configured to build the pinned core and Java binding, run integration tests,
-then archive the platform distributions as workflow artifacts on Linux and macOS.
-Local validation has been performed on macOS arm64. Remote CI and Windows results
-must be verified separately.
+The CMake ``maven-install`` target installs the assembled runtime JAR and the
+compiler JAR with its Maven integration. Explicit ``cyclonedds.runtime.jar`` and
+``cyclonedds.idlc.jar`` properties supply the packaged native resources. See
+:doc:`maven` for commands. Nothing is published automatically.
+
+``.github/workflows/universal.yml`` builds Linux/macOS on ARM64 and x86-64,
+aggregates each kind into its own JAR, then verifies the same runtime/compiler
+pair on all four hosts. Each build uses the pinned core below. Local validation
+is macOS ARM64; remote workflow results must be checked separately.
 
 Unmodified core and reproducibility
 -----------------------------------

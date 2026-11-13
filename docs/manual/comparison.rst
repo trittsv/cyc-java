@@ -80,8 +80,7 @@ implementation classes and broader lifecycle/failure audits remain maintainabili
 work. Native platform coverage, stress/sanitizer tests and a published release
 workflow also remain incomplete.
 
-The platform runtime JAR now embeds the matching native Cyclone core and generic
-JNI library, extracts them into a private temporary directory, verifies their
+The runtime JAR embeds matching native Cyclone cores and JNI libraries for the included platforms, extracts them into a private temporary directory, verifies their
 SHA-256 digests and loads dependencies in order. Application code need not call
 ``System.loadLibrary`` or configure ``java.library.path``. This is a packaging feature;
 it does not remove the coverage and validation gaps above.

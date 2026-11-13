@@ -9,9 +9,9 @@
 # SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 
 cmake_minimum_required(VERSION 3.21)
-project(CycloneDDSJava VERSION 0.1.0 LANGUAGES C Java)
+project(CycloneDDSJava VERSION 11.0.1 LANGUAGES C Java)
 
-find_package(CycloneDDS REQUIRED)
+find_package(CycloneDDS ${PROJECT_VERSION} EXACT REQUIRED)
 find_package(Java 17 REQUIRED COMPONENTS Development)
 find_package(JNI REQUIRED)
 include(UseJava)
@@ -41,12 +41,12 @@ add_jar(idl4-java-api SOURCES ${IDL_JAVA_API_SOURCES}
 install_jar(idl4-java-api DESTINATION share/java)
 file(GLOB_RECURSE JAVA_SOURCES CONFIGURE_DEPENDS src/java/*.java)
 list(FILTER JAVA_SOURCES EXCLUDE REGEX "/org/omg/type/")
-add_jar(cyclonedds-java SOURCES ${JAVA_SOURCES} INCLUDE_JARS omg-dds-api idl4-java-api
+add_jar(org.eclipse.cyclonedds SOURCES ${JAVA_SOURCES} INCLUDE_JARS omg-dds-api idl4-java-api
   RESOURCES NAMESPACE META-INF LICENSE THIRD_PARTY_NOTICES.md
-  OUTPUT_NAME cyclonedds-java)
+  OUTPUT_NAME org.eclipse.cyclonedds)
 add_library(CycloneDDSJava::cycloneddsjava ALIAS cycloneddsjava)
 install(TARGETS cycloneddsjava EXPORT CycloneDDSJavaTargets LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
-install_jar(cyclonedds-java DESTINATION share/java)
+install_jar(org.eclipse.cyclonedds DESTINATION share/java)
 string(TOLOWER "${CMAKE_SYSTEM_NAME}" JAVA_NATIVE_OS)
 if(APPLE)
   set(JAVA_NATIVE_OS macos)
@@ -58,7 +58,7 @@ elseif(JAVA_NATIVE_ARCH MATCHES "^(amd64|x86_64)$")
   set(JAVA_NATIVE_ARCH x86_64)
 endif()
 set(JAVA_NATIVE_PLATFORM "${JAVA_NATIVE_OS}-${JAVA_NATIVE_ARCH}")
-set(BUNDLED_RUNTIME_NAME "cyclonedds-java-${PROJECT_VERSION}-${JAVA_NATIVE_PLATFORM}.jar")
+set(BUNDLED_RUNTIME_NAME "org.eclipse.cyclonedds-${PROJECT_VERSION}-${JAVA_NATIVE_PLATFORM}.jar")
 set(BUNDLED_RUNTIME_JAR "${CMAKE_BINARY_DIR}/${BUNDLED_RUNTIME_NAME}")
 get_target_property(CORE_LIBRARY_TYPE CycloneDDS::ddsc TYPE)
 if(CORE_LIBRARY_TYPE STREQUAL "STATIC_LIBRARY")
@@ -70,24 +70,62 @@ add_custom_command(OUTPUT "${BUNDLED_RUNTIME_JAR}"
   COMMAND ${CMAKE_COMMAND} "-DSTAGING=${CMAKE_BINARY_DIR}/runtime-bundle"
     "-DOMG_JAR=$<TARGET_PROPERTY:omg-dds-api,JAR_FILE>"
     "-DIDL_JAR=$<TARGET_PROPERTY:idl4-java-api,JAR_FILE>"
-    "-DRUNTIME_JAR=$<TARGET_PROPERTY:cyclonedds-java,JAR_FILE>"
+    "-DRUNTIME_JAR=$<TARGET_PROPERTY:org.eclipse.cyclonedds,JAR_FILE>"
     "-DCORE_LIBRARY=${BUNDLE_CORE_LIBRARY}" "-DJNI_LIBRARY=$<TARGET_FILE:cycloneddsjava>"
-    "-DPLATFORM=${JAVA_NATIVE_PLATFORM}" "-DJAR=${Java_JAR_EXECUTABLE}"
+    "-DVERSION=${PROJECT_VERSION}" "-DPLATFORM=${JAVA_NATIVE_PLATFORM}" "-DJAR=${Java_JAR_EXECUTABLE}"
     "-DOUTPUT=${BUNDLED_RUNTIME_JAR}" "-DSOURCE_DIR=${PROJECT_SOURCE_DIR}"
     -P "${PROJECT_SOURCE_DIR}/cmake/BundleRuntime.cmake"
-  DEPENDS omg-dds-api idl4-java-api cyclonedds-java cycloneddsjava CycloneDDS::ddsc
+  DEPENDS omg-dds-api idl4-java-api org.eclipse.cyclonedds cycloneddsjava CycloneDDS::ddsc
     "$<TARGET_PROPERTY:omg-dds-api,JAR_FILE>" "$<TARGET_PROPERTY:idl4-java-api,JAR_FILE>"
-    "$<TARGET_PROPERTY:cyclonedds-java,JAR_FILE>" "$<TARGET_FILE:cycloneddsjava>"
+    "$<TARGET_PROPERTY:org.eclipse.cyclonedds,JAR_FILE>" "$<TARGET_FILE:cycloneddsjava>"
     cmake/BundleRuntime.cmake third_party/cyclonedds/LICENSE third_party/cyclonedds/NOTICE.md
   VERBATIM)
 add_custom_target(bundled-runtime ALL DEPENDS "${BUNDLED_RUNTIME_JAR}")
 install(FILES "${BUNDLED_RUNTIME_JAR}" DESTINATION share/java)
-install(FILES LICENSE THIRD_PARTY_NOTICES.md DESTINATION share/doc/cyclonedds-java)
-install(FILES README.md DESTINATION share/doc/cyclonedds-java)
-install(DIRECTORY docs/ DESTINATION share/doc/cyclonedds-java/docs)
-install(FILES third_party/omg-dds/LICENSE third_party/omg-dds/NOTICE DESTINATION share/doc/cyclonedds-java/omg-dds)
+install(FILES LICENSE THIRD_PARTY_NOTICES.md DESTINATION share/doc/org.eclipse.cyclonedds)
+install(FILES README.md DESTINATION share/doc/org.eclipse.cyclonedds)
+install(DIRECTORY docs/ DESTINATION share/doc/org.eclipse.cyclonedds/docs)
+install(FILES third_party/omg-dds/LICENSE third_party/omg-dds/NOTICE DESTINATION share/doc/org.eclipse.cyclonedds/omg-dds)
 
 add_subdirectory(src/idljava)
+add_subdirectory(src/idlc)
+set(UNIVERSAL_BUNDLE_INPUTS "" CACHE STRING "Additional platform runtime/compiler JARs to merge")
+set(UNIVERSAL_REQUIRED_PLATFORMS "${JAVA_NATIVE_PLATFORM}" CACHE STRING "Required platform pairs; CI release assembly requires all supported platforms")
+string(REPLACE ";" "," UNIVERSAL_PLATFORM_ARGUMENT "${UNIVERSAL_REQUIRED_PLATFORMS}")
+set(UNIVERSAL_RUNTIME_NAME "org.eclipse.cyclonedds-${PROJECT_VERSION}.jar")
+set(UNIVERSAL_RUNTIME_JAR "${CMAKE_BINARY_DIR}/${UNIVERSAL_RUNTIME_NAME}")
+add_custom_command(OUTPUT "${UNIVERSAL_RUNTIME_JAR}"
+  COMMAND "${Java_JAVA_EXECUTABLE}" -cp "$<TARGET_PROPERTY:idlc-launcher,JAR_FILE>"
+    org.eclipse.cyclonedds.idlc.UniversalJar --kind runtime --output "${UNIVERSAL_RUNTIME_JAR}"
+    --version "${PROJECT_VERSION}" --platforms "${UNIVERSAL_PLATFORM_ARGUMENT}"
+    "${BUNDLED_RUNTIME_JAR}" "${BUNDLED_IDLC_JAR}" ${UNIVERSAL_BUNDLE_INPUTS}
+  DEPENDS bundled-runtime bundled-idlc idlc-launcher
+    "${BUNDLED_RUNTIME_JAR}" "${BUNDLED_IDLC_JAR}"
+    "$<TARGET_PROPERTY:idlc-launcher,JAR_FILE>" ${UNIVERSAL_BUNDLE_INPUTS}
+  VERBATIM)
+add_custom_target(universal-runtime ALL DEPENDS "${UNIVERSAL_RUNTIME_JAR}")
+install(FILES "${UNIVERSAL_RUNTIME_JAR}" DESTINATION share/java)
+set(UNIVERSAL_IDLC_NAME "org.eclipse.cyclonedds.idlc-${PROJECT_VERSION}.jar")
+set(UNIVERSAL_IDLC_JAR "${CMAKE_BINARY_DIR}/${UNIVERSAL_IDLC_NAME}")
+add_custom_command(OUTPUT "${UNIVERSAL_IDLC_JAR}"
+  COMMAND "${Java_JAVA_EXECUTABLE}" -cp "$<TARGET_PROPERTY:idlc-launcher,JAR_FILE>"
+    org.eclipse.cyclonedds.idlc.UniversalJar --kind compiler --output "${UNIVERSAL_IDLC_JAR}"
+    --version "${PROJECT_VERSION}" --platforms "${UNIVERSAL_PLATFORM_ARGUMENT}"
+    "${BUNDLED_RUNTIME_JAR}" "${BUNDLED_IDLC_JAR}" ${UNIVERSAL_BUNDLE_INPUTS}
+  DEPENDS bundled-runtime bundled-idlc idlc-launcher
+    "${BUNDLED_RUNTIME_JAR}" "${BUNDLED_IDLC_JAR}"
+    "$<TARGET_PROPERTY:idlc-launcher,JAR_FILE>" ${UNIVERSAL_BUNDLE_INPUTS}
+  VERBATIM)
+add_custom_target(universal-idlc ALL DEPENDS "${UNIVERSAL_IDLC_JAR}")
+install(FILES "${UNIVERSAL_IDLC_JAR}" DESTINATION share/java)
+find_program(MAVEN_EXECUTABLE NAMES mvn HINTS "$ENV{MAVEN_HOME}/bin")
+if(MAVEN_EXECUTABLE)
+  add_custom_target(maven-install
+    COMMAND "${MAVEN_EXECUTABLE}" -B -f "${PROJECT_SOURCE_DIR}/maven/pom.xml"
+      "-Dcyclonedds.runtime.jar=${UNIVERSAL_RUNTIME_JAR}"
+      "-Dcyclonedds.idlc.jar=${UNIVERSAL_IDLC_JAR}" install
+    DEPENDS universal-runtime universal-idlc USES_TERMINAL VERBATIM)
+endif()
 configure_package_config_file(cmake/CycloneDDSJavaConfig.cmake.in
   "${CMAKE_CURRENT_BINARY_DIR}/CycloneDDSJavaConfig.cmake" INSTALL_DESTINATION lib/cmake/CycloneDDSJava)
 write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/CycloneDDSJavaConfigVersion.cmake"
@@ -112,6 +150,29 @@ if(BUILD_TESTING)
     add_test(NAME upstream-coverage-audit COMMAND "${Python3_EXECUTABLE}"
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/upstream/audit.py" --check --build "${CMAKE_CURRENT_BINARY_DIR}")
   endif()
+  if(Python3_Interpreter_FOUND)
+    add_test(NAME idlc-bundle COMMAND "${Python3_EXECUTABLE}"
+      "${PROJECT_SOURCE_DIR}/tests/idlc_bundle.py" "${Java_JAVA_EXECUTABLE}" "${Java_JAVAC_EXECUTABLE}"
+      "${UNIVERSAL_IDLC_JAR}" "${UNIVERSAL_RUNTIME_JAR}" "${PROJECT_SOURCE_DIR}")
+    set_tests_properties(idlc-bundle PROPERTIES TIMEOUT 60)
+    add_test(NAME universal-assembly COMMAND "${Python3_EXECUTABLE}"
+      "${PROJECT_SOURCE_DIR}/tests/universal_assembly.py" "${Java_JAVA_EXECUTABLE}"
+      "$<TARGET_PROPERTY:idlc-launcher,JAR_FILE>" "${BUNDLED_RUNTIME_JAR}" "${BUNDLED_IDLC_JAR}"
+      "${UNIVERSAL_RUNTIME_JAR}" "${PROJECT_VERSION}")
+    set_tests_properties(universal-assembly PROPERTIES TIMEOUT 60)
+    option(BUILD_MAVEN_TESTING "Run Maven compiler/plugin consumer tests (downloads Maven dependencies)" OFF)
+    if(BUILD_MAVEN_TESTING)
+      if(NOT MAVEN_EXECUTABLE)
+        message(FATAL_ERROR "BUILD_MAVEN_TESTING requires Maven 3.9+")
+      endif()
+      set(MAVEN_TEST_REPOSITORY "${CMAKE_BINARY_DIR}/maven-test-repository" CACHE PATH "Isolated Maven integration-test repository")
+      add_test(NAME maven-consumer COMMAND "${Python3_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/tests/maven_consumer.py" --maven "${MAVEN_EXECUTABLE}"
+        --build "${CMAKE_BINARY_DIR}" --platform "${JAVA_NATIVE_PLATFORM}" --version "${PROJECT_VERSION}"
+        --repository "${MAVEN_TEST_REPOSITORY}")
+      set_tests_properties(maven-consumer PROPERTIES TIMEOUT 300 RUN_SERIAL TRUE)
+    endif()
+  endif()
   idljava_generate(TARGET test-types FILES tests/idl/Types.idl tests/idl/Naming.idl tests/idl/Annotations.idl
     tests/upstream/idl/RecursiveExternalUnionCase.idl
     tests/upstream/idl/RecursiveMutualSequence.idl
@@ -121,7 +182,7 @@ if(BUILD_TESTING)
     tests/upstream/idl/RecursiveOptionalSequenceSelf.idl
     tests/upstream/idl/RecursiveOptionalTypedefSequenceSelf.idl)
   file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS tests/java/*.java)
-  add_jar(java-tests SOURCES ${TEST_SOURCES} INCLUDE_JARS omg-dds-api idl4-java-api cyclonedds-java helloworld-java "${hello-types_JAR}" "${test-types_JAR}")
+  add_jar(java-tests SOURCES ${TEST_SOURCES} INCLUDE_JARS omg-dds-api idl4-java-api org.eclipse.cyclonedds helloworld-java "${hello-types_JAR}" "${test-types_JAR}")
   add_dependencies(java-tests hello-types test-types)
   file(GLOB_RECURSE PORTABLE_TEST_SOURCES CONFIGURE_DEPENDS tests/portable/*.java)
   add_jar(omg-api-tests SOURCES ${PORTABLE_TEST_SOURCES}
@@ -132,7 +193,7 @@ if(BUILD_TESTING)
   else()
     set(CP_SEPARATOR ":")
   endif()
-  set(TEST_CP "${CMAKE_CURRENT_BINARY_DIR}/java-tests.jar${CP_SEPARATOR}${CMAKE_CURRENT_BINARY_DIR}/omg-dds-api.jar${CP_SEPARATOR}${CMAKE_CURRENT_BINARY_DIR}/idl4-java-api.jar${CP_SEPARATOR}${CMAKE_CURRENT_BINARY_DIR}/cyclonedds-java.jar${CP_SEPARATOR}${CMAKE_CURRENT_BINARY_DIR}/examples/helloworld/hello-types.jar${CP_SEPARATOR}${test-types_JAR}")
+  set(TEST_CP "${CMAKE_CURRENT_BINARY_DIR}/java-tests.jar${CP_SEPARATOR}${CMAKE_CURRENT_BINARY_DIR}/omg-dds-api.jar${CP_SEPARATOR}${CMAKE_CURRENT_BINARY_DIR}/idl4-java-api.jar${CP_SEPARATOR}${CMAKE_CURRENT_BINARY_DIR}/org.eclipse.cyclonedds.jar${CP_SEPARATOR}${CMAKE_CURRENT_BINARY_DIR}/examples/helloworld/hello-types.jar${CP_SEPARATOR}${test-types_JAR}")
   foreach(value_case duration-add duration-subtract duration-units duration-compare duration-special
       time-add time-subtract time-units time-compare time-copies time-invalid nil-handle)
     add_test(NAME "upstream-${value_case}" COMMAND ${Java_JAVA_EXECUTABLE} -ea
@@ -279,17 +340,17 @@ if(BUILD_TESTING)
   add_test(NAME bundled-runtime COMMAND "${Java_JAVA_EXECUTABLE}" -ea -Xcheck:jni
     "-Dorg.omg.dds.serviceClassName=org.eclipse.cyclonedds.omg.CycloneServiceEnvironment"
     "-Djava.library.path=${CMAKE_BINARY_DIR}/no-system-natives"
-    -cp "${BUNDLED_RUNTIME_JAR}${CP_SEPARATOR}${CMAKE_BINARY_DIR}/consumer-build/consumer.jar${CP_SEPARATOR}${CMAKE_BINARY_DIR}/consumer-build/consumer-types.jar" Consumer)
+    -cp "${UNIVERSAL_RUNTIME_JAR}${CP_SEPARATOR}${CMAKE_BINARY_DIR}/consumer-build/consumer.jar${CP_SEPARATOR}${CMAKE_BINARY_DIR}/consumer-build/consumer-types.jar" Consumer)
   set_tests_properties(bundled-runtime PROPERTIES TIMEOUT 30 DEPENDS installed-consumer
     ENVIRONMENT "LD_LIBRARY_PATH=;DYLD_LIBRARY_PATH=;DYLD_FALLBACK_LIBRARY_PATH=")
   add_test(NAME native-bundle-errors COMMAND "${Java_JAVA_EXECUTABLE}" -ea -cp "${TEST_CP}"
-    org.eclipse.cyclonedds.tests.NativeBundleTest "${BUNDLED_RUNTIME_JAR}")
+    org.eclipse.cyclonedds.tests.NativeBundleTest "${UNIVERSAL_RUNTIME_JAR}")
   set_tests_properties(native-bundle-errors PROPERTIES TIMEOUT 30)
 endif()
 
-install(DIRECTORY tests/consumer/ DESTINATION share/cyclonedds-java/consumer-example)
-set(CPACK_PACKAGE_NAME cyclonedds-java)
-set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}-dev")
+install(DIRECTORY tests/consumer/ DESTINATION share/org.eclipse.cyclonedds/consumer-example)
+set(CPACK_PACKAGE_NAME org.eclipse.cyclonedds)
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
 set(CPACK_PACKAGE_VENDOR "Cyclone DDS Java contributors")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Experimental OMG Java provider and IDL compiler for Cyclone DDS")
 set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/LICENSE")

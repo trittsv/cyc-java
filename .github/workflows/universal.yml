@@ -1,0 +1,110 @@
+name: Universal Java distribution
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  platform:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux-x86_64
+          - runner: ubuntu-24.04-arm
+            platform: linux-aarch64
+          - runner: macos-15-intel
+            platform: macos-x86_64
+          - runner: macos-15
+            platform: macos-aarch64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Build matching Cyclone DDS core
+        shell: bash
+        run: |
+          git clone https://github.com/eclipse-cyclonedds/cyclonedds.git "$RUNNER_TEMP/core"
+          git -C "$RUNNER_TEMP/core" checkout 3a5526315e64ac1d2a52e6ac1ae7f3e861c593d3
+          cmake -S "$RUNNER_TEMP/core" -B "$RUNNER_TEMP/core-build" \
+            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/core-install" \
+            -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF -DENABLE_SECURITY=OFF -DENABLE_SSL=OFF
+          cmake --build "$RUNNER_TEMP/core-build" --parallel 4
+          cmake --install "$RUNNER_TEMP/core-build"
+      - name: Build and test platform components
+        shell: bash
+        run: |
+          cmake -S . -B build -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/core-install" \
+            -DJAVA_HOME="$JAVA_HOME" -DBUILD_MAVEN_TESTING=ON
+          cmake --build build --parallel 4
+          ctest --test-dir build --output-on-failure -j 2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: platform-${{ matrix.platform }}
+          path: build/*-${{ matrix.platform }}.jar
+          if-no-files-found: error
+  assemble:
+    needs: platform
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: platform-*
+          path: platform-inputs
+      - name: Assemble all required platforms and Maven artifacts
+        shell: bash
+        run: |
+          VERSION=$(python3 -c 'import xml.etree.ElementTree as E; print(E.parse("pom.xml").getroot().find("{http://maven.apache.org/POM/4.0.0}version").text)')
+          mkdir -p dist
+          for KIND in runtime compiler; do
+            if [ "$KIND" = runtime ]; then ARTIFACT=org.eclipse.cyclonedds; else ARTIFACT=org.eclipse.cyclonedds.idlc; fi
+            java -cp "platform-inputs/platform-linux-x86_64/org.eclipse.cyclonedds.idlc-${VERSION}-linux-x86_64.jar" \
+              org.eclipse.cyclonedds.idlc.UniversalJar --kind "$KIND" \
+              --output "dist/${ARTIFACT}-${VERSION}.jar" --version "$VERSION" \
+              --platforms linux-x86_64,linux-aarch64,macos-x86_64,macos-aarch64 --input-dir platform-inputs
+          done
+          mvn -B -ntp -f maven/pom.xml \
+            "-Dcyclonedds.runtime.jar=$PWD/dist/org.eclipse.cyclonedds-${VERSION}.jar" \
+            "-Dcyclonedds.idlc.jar=$PWD/dist/org.eclipse.cyclonedds.idlc-${VERSION}.jar" package
+          cp "src/idlc/target/org.eclipse.cyclonedds.idlc-${VERSION}.jar" dist/
+          cp pom.xml "dist/org.eclipse.cyclonedds-${VERSION}.pom"
+          cp maven/pom.xml "dist/org.eclipse.cyclonedds-build-${VERSION}.pom"
+          cp src/idlc/pom.xml "dist/org.eclipse.cyclonedds.idlc-${VERSION}.pom"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: universal-java
+          path: dist/*
+          if-no-files-found: error
+  verify-universal:
+    needs: assemble
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15-intel, macos-15]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@v4
+        with:
+          name: universal-java
+          path: release
+      - name: Run the same runtime/compiler pair on each host
+        shell: bash
+        run: |
+          VERSION=$(python3 -c 'import xml.etree.ElementTree as E; print(E.parse("pom.xml").getroot().find("{http://maven.apache.org/POM/4.0.0}version").text)')
+          python3 tests/idlc_bundle.py "$JAVA_HOME/bin/java" "$JAVA_HOME/bin/javac" \
+            "$PWD/release/org.eclipse.cyclonedds.idlc-${VERSION}.jar" "$PWD/release/org.eclipse.cyclonedds-${VERSION}.jar" "$PWD"

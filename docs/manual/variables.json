@@ -5,6 +5,6 @@
     "project-short": "Cyclone DDS Java",
     "copyright": ":year:, Cyclone DDS Java contributors",
     "author": "Cyclone DDS Java contributors",
-    "version": "0.1.0",
-    "release": "0.1.0-dev"
+    "version": "11.0.1",
+    "release": "11.0.1"
 }

@@ -18,6 +18,7 @@
 
    ddsjava
    idljava
+   maven
    howto
    examples
    api/index

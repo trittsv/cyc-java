@@ -10,5 +10,6 @@
 
 /build/
 /target/
+/src/*/target/
 *.class
 .DS_Store

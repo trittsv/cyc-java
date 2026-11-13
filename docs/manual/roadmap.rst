@@ -99,7 +99,9 @@ Remaining release and validation work
 Verify the configured Linux/macOS CI remotely and add Windows coverage. Provide a
 published Maven/Gradle generator/native workflow, reproducible archives and
 sanitizer/stress runs. The standalone runtime JAR bundles the matching core/JNI libraries; code
-generation still requires a matching external Cyclone DDS installation. Maven compiles the combined Java JAR only.
+generation uses the separate ``org.eclipse.cyclonedds.idlc`` package, including
+its platform libraries and Maven goal. The runtime artifact is
+``org.eclipse.cyclonedds``; both use the core version.
 
 A standards claim still requires choosing a complete DDS profile, mapping every
 applicable requirement to implementation/tests, and closing all required gaps.

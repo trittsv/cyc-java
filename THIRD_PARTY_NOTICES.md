@@ -29,11 +29,20 @@ The unmodified normative OMG DDS-Java 1.0 API sources are included under
 license; the project's EPL-2.0 / EDL-1.0 licensing does not replace it.
 # Bundled Cyclone DDS runtime
 
-The platform runtime JAR embeds the configured Cyclone DDS native core.
+The `org.eclipse.cyclonedds` runtime JAR embeds the Cyclone DDS native cores for its included platforms.
 Its unmodified EPL 2.0 / EDL 1.0 license and component notices are preserved in
-`third_party/cyclonedds` and in `META-INF/cyclonedds` inside the bundled JAR.
+`third_party/cyclonedds` and in `META-INF/cyclonedds` inside the runtime JAR.
 The tested source revision is recorded in `third_party/cyclonedds/ORIGIN.md`.
 
+
+# Bundled IDL compiler
+
+The separate `org.eclipse.cyclonedds.idlc` compiler JAR embeds each platform's configured
+Cyclone DDS `idlc` executable, IDL library, Java backend and required native
+libraries. The compiler statically includes the MCPP preprocessor, copyright
+1998, 2002-2008 Kiyoshi Matsui, under its BSD license. That license is retained
+in [third_party/idlc/LICENSE-mcpp](third_party/idlc/LICENSE-mcpp) and in
+`META-INF/cyclonedds/LICENSE-mcpp` inside the compiler JAR. Both artifacts preserve the core's original license and notices.
 
 # Documentation theme helpers
 

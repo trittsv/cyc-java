@@ -35,7 +35,7 @@ def main():
         '<EnableTopicDiscoveryEndpoints>true</EnableTopicDiscoveryEndpoints>'
         '<Peers><Peer Address="127.0.0.1"/></Peers></Discovery></Domain></CycloneDDS>')
     processes = []
-    with tempfile.TemporaryDirectory(prefix="cyclonedds-java-examples-") as directory:
+    with tempfile.TemporaryDirectory(prefix="org.eclipse.cyclonedds-examples-") as directory:
         def start(name, *arguments):
             path = Path(directory) / (str(len(processes)) + ".log")
             with path.open("w") as output:

@@ -24,6 +24,14 @@ metadata generator, following ``idlcxx`` and ``idlpy``. It emits Java source onl
      };
    };
 
+Maven integration
+-----------------
+
+The :doc:`maven` plugin generates and compiles application types as part of
+``mvn package``. The separate ``org.eclipse.cyclonedds.idlc`` JAR bundles ``idlc``, the Java backend
+and native dependencies, so application builds need no CMake or native tools.
+The same compiler JAR can be invoked directly with ``java -jar ...``.
+
 CMake integration
 -----------------
 
@@ -45,11 +53,11 @@ Direct invocation
 .. code-block:: sh
 
    idlc -l /path/to/binding/lib/libcycloneddsidljava.so -o generated Message.idl
-   javac -cp cyclonedds-java-0.1.0-linux-x86_64.jar -d classes generated/Example/Message.java
+   javac -cp org.eclipse.cyclonedds-11.0.1.jar -d classes generated/Example/Message.java
    jar --create --file message-types.jar -C classes .
 
 Use ``.dylib`` on macOS. The backend is needed only while generating source.
-A generated type JAR plus the platform runtime JAR is sufficient to run an
+A generated type JAR plus the runtime JAR is sufficient to run an
 application; ``idlc`` and a C compiler are not runtime requirements.
 
 Mappings

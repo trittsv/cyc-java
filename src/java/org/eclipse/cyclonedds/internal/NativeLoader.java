@@ -35,14 +35,14 @@ public final class NativeLoader {
         InputStream manifest = NativeLoader.class.getResourceAsStream(prefix + "libraries.list");
         if (manifest == null) {
             if (NativeLoader.class.getResource("/org/eclipse/cyclonedds/native/platforms.list") != null)
-                throw new UnsatisfiedLinkError("The Cyclone DDS runtime JAR does not contain natives for " + platform() + ". Use the matching platform artifact.");
+                throw new UnsatisfiedLinkError("The Cyclone DDS runtime JAR does not contain natives for " + platform() + ". Use a universal JAR containing this platform.");
             // The thin development JAR supports an explicitly installed runtime.
             System.loadLibrary("cycloneddsjava"); loaded = true; return;
         }
         Path directory = null;
         List<Path> extracted = new ArrayList<>();
         try (var input = new BufferedReader(new InputStreamReader(manifest, StandardCharsets.UTF_8))) {
-            directory = Files.createTempDirectory("cyclonedds-java-" + platform() + "-");
+            directory = Files.createTempDirectory("org.eclipse.cyclonedds-" + platform() + "-");
             directory.toFile().deleteOnExit();
             String line;
             while ((line = input.readLine()) != null) {
