@@ -353,10 +353,13 @@ static void emit_key_copies(FILE *out, const idl_pstate_t *pstate, const idl_str
       const char *member = mapped_name(d);
       struct array_shape array = shape(member_spec(m, d));
       if (!array.count && idl_is_struct(array.base) && count + 3 < 128) {
-        char nested[4096];
-        snprintf(nested, sizeof(nested), "%s.get_%s()", access, member);
+        size_t size = strlen(access) + strlen(member) + sizeof(".get_()");
+        char *nested = malloc(size);
+        if (!nested) { allocation_failed = true; return; }
+        snprintf(nested, size, "%s.get_%s()", access, member);
         nodes[count + 2] = (const idl_node_t *) array.base;
         emit_key_copies(out, pstate, topic, array.base, nodes, count + 3, nested);
+        free(nested);
       } else if (!array.count && idl_is_union(array.base) && ((const idl_union_t *) array.base)->switch_type_spec->key.value) {
         fputs("            ", out); emit_codec(out, array.base);
         fprintf(out, ".copyKeys(target%s.get_%s(), source%s.get_%s());\n", access, member, access, member);
