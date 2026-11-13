@@ -24,15 +24,24 @@ jobs:
       CMAKE_GENERATOR: ${{ matrix.platform == 'windows-x86_64' && 'Ninja' || 'Unix Makefiles' }}
       CMAKE_BUILD_TYPE: Release
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
-      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Configure MSVC for x86-64
         if: runner.os == 'Windows'
-        with:
-          arch: x64
+        shell: pwsh
+        run: |
+          $before = @{}
+          Get-ChildItem Env: | ForEach-Object { $before[$_.Name] = $_.Value }
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'Visual Studio C++ tools were not found' }
+          & "$installation\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+          Get-ChildItem Env: | Where-Object { $before[$_.Name] -cne $_.Value } | ForEach-Object {
+              "$($_.Name)=$($_.Value)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          }
       - name: Build matching Cyclone DDS core
         shell: python
         run: |
@@ -90,7 +99,7 @@ jobs:
                   message = (case.attrib["name"] + "\n" + output)[-12000:]
                   message = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
                   print("::error::" + message)
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: platform-${{ matrix.platform }}
           path: build/*-${{ matrix.platform }}.jar
@@ -99,12 +108,12 @@ jobs:
     needs: platform
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: platform-*
           path: platform-inputs
@@ -127,7 +136,7 @@ jobs:
           cp pom.xml "dist/org.eclipse.cyclonedds-${VERSION}.pom"
           cp maven/pom.xml "dist/org.eclipse.cyclonedds-build-${VERSION}.pom"
           cp src/idlc/pom.xml "dist/org.eclipse.cyclonedds.idlc-${VERSION}.pom"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: universal-java
           path: dist/*
@@ -140,12 +149,12 @@ jobs:
         runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, windows-2022]
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: universal-java
           path: release
